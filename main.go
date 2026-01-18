@@ -9,11 +9,15 @@ import (
 
 
 func main() {
+	const filepathRoot = "."
+	const port = "8080"
+
 	mux := http.NewServeMux()
-	mux.Handle("/", http.FileServer(http.Dir(".")))
+	mux.Handle("/app/", http.StripPrefix("/app", http.FileServer(http.Dir(filepathRoot))))
+	mux.HandleFunc("/healthz", handlerReadyCheck)
 
 	srv := http.Server {
-		Addr:		":8080",
+		Addr:		":" + port,
 		Handler:	mux,
 	}
 
@@ -22,5 +26,11 @@ func main() {
 		fmt.Errorf("HTTP server ListenAndServe: %v", err)
 		log.Fatalf("HTTP server ListenAndServe: %v", err)
 	}
+}
+
+func handlerReadyCheck(w http.ResponseWriter, req *http.Request){
+	w.Header().Add("Content-Type", "text/plain; charset=utf-8")	
+	w.WriteHeader(http.StatusOK)
+	w.Write([]byte(http.StatusText(http.StatusOK)))
 }
 
