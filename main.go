@@ -7,7 +7,6 @@ import (
 	"sync/atomic"
 	"encoding/json"
 	"io"
-	"regexp"
 	"os"
 	"database/sql"
 
@@ -49,7 +48,7 @@ func main() {
 
 	mux.HandleFunc("GET /api/healthz", handlerReadyCheck)
 	mux.HandleFunc("POST /api/validate_chirp", handlerValidateChirp)
-	mux.HandleFunc("GET /admin/metrics", apiCfg.handlerWriteRequestCount)
+	mux.HandleFunc("GET /admin/metrics", apiCfg.handlerMetrics)
 	mux.HandleFunc("POST /admin/reset", apiCfg.handlerResetRequestCount)
 
 	srv := http.Server {
@@ -62,12 +61,6 @@ func main() {
 		fmt.Errorf("HTTP server ListenAndServe: %v", err)
 		log.Fatalf("HTTP server ListenAndServe: %v", err)
 	}
-}
-
-func handlerReadyCheck(w http.ResponseWriter, r *http.Request) {
-	w.Header().Add("Content-Type", "text/plain; charset=utf-8")
-	w.WriteHeader(http.StatusOK)
-	w.Write([]byte(http.StatusText(http.StatusOK)))
 }
 
 func handlerValidateChirp(w http.ResponseWriter, r *http.Request) {
@@ -99,57 +92,6 @@ func handlerValidateChirp(w http.ResponseWriter, r *http.Request) {
 
 	respondWithJSON(w, 200, responseBody{
 		CleanedBody: cleanMessage(origMsg),
-	})
-}
-
-func cleanMessage(msg string) string {
-	cleanedMsg := msg
-	badWords := []string{"kerfuffle", "sharbert", "fornax"}
-	for _, badWord := range badWords {
-		pattern := fmt.Sprintf("(?i)%s", badWord)
-		re := regexp.MustCompile(pattern)
-		cleanedMsg = re.ReplaceAllString(cleanedMsg, "****")
-	}
-	return cleanedMsg
-}
-
-func respondWithJSON(w http.ResponseWriter, code int, payload interface{}) error {
-	response, err := json.Marshal(payload)
-	if err != nil {
-		return err
-	}
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(code)
-	w.Write(response)
-	return nil
-}
-
-func respondWithError(w http.ResponseWriter, code int, msg string) error { 
-	return respondWithJSON(w, code, map[string]string{"error": msg})
-}
-
-func (cfg *apiConfig) handlerWriteRequestCount(w http.ResponseWriter, req *http.Request) {
-	w.Header().Add("Content-Type", "text/html")
-	w.WriteHeader(http.StatusOK)
-	w.Write([]byte(fmt.Sprintf(`
-<html>
-  <body>
-    <h1>Welcome, Chirpy Admin</h1>
-    <p>Chirpy has been visited %d times!</p>
-  </body>
-</html>
-`, cfg.fileserverHits.Load())))
-}
-
-func (cfg *apiConfig) handlerResetRequestCount(w http.ResponseWriter, req *http.Request) {
-	w.WriteHeader(http.StatusOK)
-	cfg.fileserverHits.Store(0)
-}
-
-func (cfg *apiConfig) middlewareMetricsInc(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		cfg.fileserverHits.Add(1)
-		next.ServeHTTP(w, r)
 	})
 }
 
