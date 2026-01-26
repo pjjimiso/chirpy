@@ -1,7 +1,5 @@
 package main
 
-import _ "github.com/lib/pq"
-
 import ( 
 	"fmt"
 	"net/http"
@@ -14,13 +12,13 @@ import (
 	"database/sql"
 
 	"github.com/pjjimiso/chirpy/internal/database"
-
 	"github.com/joho/godotenv"
+	_ "github.com/lib/pq"
 )
 
 type apiConfig struct {
 	fileserverHits atomic.Int32
-	dbQueries *database.Queries
+	db *database.Queries
 }
 
 
@@ -31,12 +29,18 @@ func main() {
 
 	godotenv.Load()
 	dbURL := os.Getenv("DB_URL")
+	if dbURL == "" {
+		log.Fatal("DB_URL must be set")
+	}
+
 	db, err := sql.Open("postgres", dbURL)
 	if err != nil {
-		fmt.Errorf("An error occured: %v", err)
+		log.Fatal("Error opening database: %s", err)
 	}
+	dbQueries := database.New(db)
 	apiCfg := apiConfig{
-		dbQueries: database.New(db),
+		fileserverHits:	atomic.Int32{},
+		db:		dbQueries,
 	}
 
 	mux := http.NewServeMux()
