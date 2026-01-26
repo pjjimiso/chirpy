@@ -1,5 +1,6 @@
 package main
 
+import _ "github.com/lib/pq"
 
 import ( 
 	"fmt"
@@ -9,10 +10,17 @@ import (
 	"encoding/json"
 	"io"
 	"regexp"
+	"os"
+	"database/sql"
+
+	"github.com/pjjimiso/chirpy/internal/database"
+
+	"github.com/joho/godotenv"
 )
 
 type apiConfig struct {
 	fileserverHits atomic.Int32
+	dbQueries *database.Queries
 }
 
 
@@ -20,7 +28,16 @@ func main() {
 	const filepathRoot = "."
 	const port = "8080"
 
-	apiCfg := apiConfig{}
+
+	godotenv.Load()
+	dbURL := os.Getenv("DB_URL")
+	db, err := sql.Open("postgres", dbURL)
+	if err != nil {
+		fmt.Errorf("An error occured: %v", err)
+	}
+	apiCfg := apiConfig{
+		dbQueries: database.New(db),
+	}
 
 	mux := http.NewServeMux()
 	handler := http.StripPrefix("/app", http.FileServer(http.Dir(filepathRoot)))
