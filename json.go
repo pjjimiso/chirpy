@@ -1,10 +1,8 @@
 package main
 
 import (
-	"fmt"
 	"encoding/json"
 	"net/http"
-	"regexp"
 )
 
 func respondWithJSON(w http.ResponseWriter, code int, payload interface{}) error {
@@ -22,13 +20,3 @@ func respondWithError(w http.ResponseWriter, code int, msg string) error {
 	return respondWithJSON(w, code, map[string]string{"error": msg})
 }
 
-func cleanMessage(msg string) string {
-	cleanedMsg := msg
-	badWords := []string{"kerfuffle", "sharbert", "fornax"}
-	for _, badWord := range badWords {
-		pattern := fmt.Sprintf("(?i)%s", badWord)
-		re := regexp.MustCompile(pattern)
-		cleanedMsg = re.ReplaceAllString(cleanedMsg, "****")
-	}
-	return cleanedMsg
-}
