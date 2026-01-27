@@ -38,7 +38,7 @@ func (q *Queries) CreateUser(ctx context.Context, email string) (User, error) {
 }
 
 const truncateUsers = `-- name: TruncateUsers :exec
-TRUNCATE TABLE users
+TRUNCATE TABLE users CASCADE
 `
 
 func (q *Queries) TruncateUsers(ctx context.Context) error {

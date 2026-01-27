@@ -28,6 +28,13 @@ type User struct {
 	Email		string		`json:"email"`
 }
 
+type Chirp struct {
+	ID		uuid.UUID	`json:"id"`
+	CreatedAt	time.Time	`json:"created_at"`
+	UpdatedAt	time.Time	`json:"updated_at"`
+	CleanedBody	string		`json:"body"`
+	UserID		uuid.UUID	`json:"user_id"`
+}
 
 func main() {
 	const filepathRoot = "."
@@ -58,7 +65,7 @@ func main() {
 	mux.Handle("/app/", apiCfg.middlewareMetricsInc(fsHandler))
 
 	mux.HandleFunc("GET /api/healthz", handlerReadyCheck)
-	mux.HandleFunc("POST /api/validate_chirp", handlerValidateChirp)
+	mux.HandleFunc("POST /api/chirps", apiCfg.handlerChirp)
 	mux.HandleFunc("POST /api/users", apiCfg.handlerGetUser)
 
 	mux.HandleFunc("GET /admin/metrics", apiCfg.handlerMetrics)
