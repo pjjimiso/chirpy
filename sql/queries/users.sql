@@ -12,3 +12,7 @@ VALUES (
 	$1
 )
 RETURNING *;
+
+-- name: TruncateUsers :exec
+TRUNCATE TABLE users;
+

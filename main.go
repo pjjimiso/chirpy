@@ -18,6 +18,7 @@ import (
 type apiConfig struct {
 	fileserverHits	atomic.Int32
 	db		*database.Queries
+	platform	string
 }
 
 type User struct {
@@ -34,6 +35,7 @@ func main() {
 
 
 	godotenv.Load()
+	plat := os.Getenv("PLATFORM")
 	dbURL := os.Getenv("DB_URL")
 	if dbURL == "" {
 		log.Fatal("DB_URL must be set")
@@ -48,6 +50,7 @@ func main() {
 	apiCfg := apiConfig{
 		fileserverHits:	atomic.Int32{},
 		db:		dbQueries,
+		platform:	plat,
 	}
 
 	mux := http.NewServeMux()
@@ -59,7 +62,7 @@ func main() {
 	mux.HandleFunc("POST /api/users", apiCfg.handlerGetUser)
 
 	mux.HandleFunc("GET /admin/metrics", apiCfg.handlerMetrics)
-	mux.HandleFunc("POST /admin/reset", apiCfg.handlerResetRequestCount)
+	mux.HandleFunc("POST /admin/reset", apiCfg.handlerAdminReset)
 
 
 	srv := http.Server {

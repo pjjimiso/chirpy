@@ -26,7 +26,7 @@ func (cfg *apiConfig) handlerGetUser(w http.ResponseWriter, r *http.Request) {
 
 	user, err := cfg.db.CreateUser(r.Context(), params.Email)
 	
-	respondWithJSON(w, 200, User{
+	respondWithJSON(w, 201, User{
 		ID: user.ID,
 		CreatedAt: user.CreatedAt,
 		UpdatedAt: user.UpdatedAt,
