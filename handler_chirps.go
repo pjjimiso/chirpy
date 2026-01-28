@@ -12,7 +12,33 @@ import (
 	"github.com/pjjimiso/chirpy/internal/database"
 )
 
-func (cfg *apiConfig) handlerChirp(w http.ResponseWriter, r *http.Request) {
+func (cfg *apiConfig) handlerGetChirps(w http.ResponseWriter, r *http.Request) {
+	chirps := []Chirp{}
+	chirpsJSON, err := cfg.db.GetChirps(r.Context())
+
+	if err != nil {
+		log.Printf("error getting chirps: %s", err)
+		respondWithError(w, 500, "error getting chirps")
+		return
+	}
+
+	for _, chirp := range chirpsJSON {
+		chirps = append(chirps, Chirp{
+			ID: chirp.ID,
+			CreatedAt: chirp.CreatedAt,
+			UpdatedAt: chirp.UpdatedAt,
+			CleanedBody: chirp.Body,
+			UserID: chirp.UserID,
+		})
+	}
+
+	//fmt.Println("chirp 0:", chirps[0].CleanedBody)
+	//fmt.Println("chirp 1:", chirps[1].CleanedBody)
+
+	respondWithJSON(w, 200, chirps)
+}
+
+func (cfg *apiConfig) handlerCreateChirp(w http.ResponseWriter, r *http.Request) {
 	type parameters struct {
 		Body	string		`json:"body"`
 		UserID	uuid.UUID	`json:"user_id"`
