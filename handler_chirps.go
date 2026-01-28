@@ -7,12 +7,21 @@ import (
 	"io"
 	"regexp"
 	"log"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/pjjimiso/chirpy/internal/database"
 )
 
-func (cfg *apiConfig) handlerGetChirps(w http.ResponseWriter, r *http.Request) {
+type Chirp struct {
+	ID		uuid.UUID	`json:"id"`
+	CreatedAt	time.Time	`json:"created_at"`
+	UpdatedAt	time.Time	`json:"updated_at"`
+	CleanedBody	string		`json:"body"`
+	UserID		uuid.UUID	`json:"user_id"`
+}
+
+func (cfg *apiConfig) handlerChirpsGet(w http.ResponseWriter, r *http.Request) {
 	chirps := []Chirp{}
 	chirpsJSON, err := cfg.db.GetChirps(r.Context())
 
@@ -32,13 +41,35 @@ func (cfg *apiConfig) handlerGetChirps(w http.ResponseWriter, r *http.Request) {
 		})
 	}
 
-	//fmt.Println("chirp 0:", chirps[0].CleanedBody)
-	//fmt.Println("chirp 1:", chirps[1].CleanedBody)
-
 	respondWithJSON(w, 200, chirps)
 }
 
-func (cfg *apiConfig) handlerCreateChirp(w http.ResponseWriter, r *http.Request) {
+func (cfg *apiConfig) handlerChirpsGetAll(w http.ResponseWriter, r *http.Request) {
+	type parameters struct { 
+		ID	uuid.UUID	`json:"id"`
+	}
+	chirpID, err := uuid.Parse(r.PathValue("chirpID"))
+	if err != nil { 
+		respondWithError(w, 500, "failed to parse chirp uuid")
+		return
+	}
+
+	chirp, err := cfg.db.GetChirp(r.Context(), chirpID)
+	if err != nil { 
+		respondWithError(w, 404, "chirp not found")
+		return
+	}
+
+	respondWithJSON(w, 200, Chirp{
+		ID: chirp.ID,
+		CreatedAt: chirp.CreatedAt,
+		UpdatedAt: chirp.UpdatedAt,
+		CleanedBody: chirp.Body,
+		UserID: chirp.UserID,
+	})
+}
+
+func (cfg *apiConfig) handlerChirpsCreate(w http.ResponseWriter, r *http.Request) {
 	type parameters struct {
 		Body	string		`json:"body"`
 		UserID	uuid.UUID	`json:"user_id"`

@@ -4,9 +4,19 @@ import (
 	"net/http"
 	"encoding/json"
 	"io"
+	"time"
+
+	"github.com/google/uuid"
 )
 
-func (cfg *apiConfig) handlerGetUser(w http.ResponseWriter, r *http.Request) {
+type User struct {
+	ID		uuid.UUID	`json:"id"`
+	CreatedAt	time.Time	`json:"created_at"`
+	UpdatedAt	time.Time	`json:"updated_at"`
+	Email		string		`json:"email"`
+}
+
+func (cfg *apiConfig) handlerUsersCreate(w http.ResponseWriter, r *http.Request) {
 	type parameters struct { 
 		Email string `json:"email"`
 	}
