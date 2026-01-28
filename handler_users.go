@@ -5,8 +5,11 @@ import (
 	"encoding/json"
 	"io"
 	"time"
+	"log"
 
 	"github.com/google/uuid"
+	"github.com/pjjimiso/chirpy/internal/database"
+	"github.com/pjjimiso/chirpy/internal/auth"
 )
 
 type User struct {
@@ -18,7 +21,8 @@ type User struct {
 
 func (cfg *apiConfig) handlerUsersCreate(w http.ResponseWriter, r *http.Request) {
 	type parameters struct { 
-		Email string `json:"email"`
+		Password	string `json:"password"`
+		Email		string `json:"email"`
 	}
 
 	dat, err := io.ReadAll(r.Body)
@@ -34,7 +38,23 @@ func (cfg *apiConfig) handlerUsersCreate(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	user, err := cfg.db.CreateUser(r.Context(), params.Email)
+	hash, err := auth.HashPassword(params.Password)
+	if err != nil { 
+		log.Printf("error hashing password: %s", err)
+		respondWithError(w, 500, "error hashing password")
+		return
+	}
+
+	user, err := cfg.db.CreateUser(r.Context(), database.CreateUserParams{
+		Email: params.Email,
+		HashedPasswords: hash,
+	})
+	if err != nil {
+		log.Printf("user creation failed: %s", err)
+		respondWithError(w, 500, "user creation failed")
+		return
+
+	}
 	
 	respondWithJSON(w, 201, User{
 		ID: user.ID,
@@ -43,5 +63,4 @@ func (cfg *apiConfig) handlerUsersCreate(w http.ResponseWriter, r *http.Request)
 		Email: user.Email,
 	})	
 }
-
 
