@@ -19,6 +19,47 @@ type User struct {
 	Email		string		`json:"email"`
 }
 
+func (cfg *apiConfig) handlerUsersLogin(w http.ResponseWriter, r *http.Request) {
+	type parameters struct { 
+		Password	string `json:"password"`
+		Email		string `json:"email"`
+	}
+
+	dat, err := io.ReadAll(r.Body)
+	if err != nil {
+		respondWithError(w, 500, "couldn't read request")
+		return
+	}
+
+	params := parameters{}
+	err = json.Unmarshal(dat, &params)
+	if err != nil { 
+		respondWithError(w, 500, "couldn't unmarshal parameters")
+		return
+	}
+
+	user, err := cfg.db.GetUser(r.Context(), params.Email)
+	if err != nil {
+		log.Printf("error getting user: %s", err)
+		respondWithError(w, 500, "error getting user")
+		return
+	}
+
+	match, err := auth.CheckPasswordHash(params.Password, user.HashedPasswords)
+	if !match || err != nil { 
+		log.Printf("error getting user", err)
+		respondWithError(w, 401, "401 Unauthorized")
+		return
+	}
+
+	respondWithJSON(w, 200, User{
+		ID: user.ID,
+		CreatedAt: user.CreatedAt,
+		UpdatedAt: user.UpdatedAt,
+		Email: user.Email,
+	})
+}
+
 func (cfg *apiConfig) handlerUsersCreate(w http.ResponseWriter, r *http.Request) {
 	type parameters struct { 
 		Password	string `json:"password"`

@@ -18,3 +18,6 @@ RETURNING id, created_at, updated_at, email;
 -- name: TruncateUsers :exec
 TRUNCATE TABLE users CASCADE;
 
+-- name: GetUser :one
+SELECT * FROM users
+WHERE email = $1;
