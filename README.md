@@ -7,6 +7,9 @@ curl -X POST http://localhost:8080/api/users -H "Content-Type: application/json"
 #### Create Chirp
 curl -X POST http://localhost:8080/api/chirps -H "Content-Type: application/json" -d '{"body": "Hello, world!", "user_id": "e00b789e-67ac-4533-a98d-658aa583238f"}'
 
+##### with jwt:
+curl -X POST http://localhost:8080/api/chirps -H "Content-Type: application/json" -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJjaGlycHkiLCJzdWIiOiJmN2I4ZDMwNS0zO" -d '{"body": "Hello, world!", "user_id": "e00b789e-67ac-4533-a98d-658aa583238f"}'
+
 #### Reset API metrics and truncate users table
 curl -X POST http://localhost:8080/admin/reset
 

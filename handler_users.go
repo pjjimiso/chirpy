@@ -6,6 +6,7 @@ import (
 	"io"
 	"time"
 	"log"
+	"fmt"
 
 	"github.com/google/uuid"
 	"github.com/pjjimiso/chirpy/internal/database"
@@ -17,16 +18,19 @@ type User struct {
 	CreatedAt	time.Time	`json:"created_at"`
 	UpdatedAt	time.Time	`json:"updated_at"`
 	Email		string		`json:"email"`
+	Token		string		`json:"token"`
 }
 
 func (cfg *apiConfig) handlerUsersLogin(w http.ResponseWriter, r *http.Request) {
 	type parameters struct { 
-		Password	string `json:"password"`
-		Email		string `json:"email"`
+		Password	string		`json:"password"`
+		Email		string		`json:"email"`
+		ExpiresIn	*float64	`json:"expires_in_seconds,string,omitempty"`
 	}
 
 	dat, err := io.ReadAll(r.Body)
 	if err != nil {
+		log.Printf("failed to read request body: %s", err)
 		respondWithError(w, 500, "couldn't read request")
 		return
 	}
@@ -34,9 +38,22 @@ func (cfg *apiConfig) handlerUsersLogin(w http.ResponseWriter, r *http.Request) 
 	params := parameters{}
 	err = json.Unmarshal(dat, &params)
 	if err != nil { 
+		log.Printf("json unmarshal failed: %s", err)
 		respondWithError(w, 500, "couldn't unmarshal parameters")
 		return
 	}
+
+	maxDurationSeconds := time.Hour.Seconds()
+	expiresIn := time.Hour
+
+	if (params.ExpiresIn == nil || (0 > *params.ExpiresIn || *params.ExpiresIn > maxDurationSeconds)) {
+		expiresIn = time.Hour
+	} else {
+		expiresIn = time.Duration(*params.ExpiresIn) * time.Second
+	}
+
+	fmt.Printf("\ntoken expiration: %v\n", expiresIn)
+
 
 	user, err := cfg.db.GetUser(r.Context(), params.Email)
 	if err != nil {
@@ -52,11 +69,20 @@ func (cfg *apiConfig) handlerUsersLogin(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
+
+	tokenString, err := auth.MakeJWT(user.ID, cfg.jwtSecret, expiresIn)
+	if err != nil {
+		log.Printf("error creating jwt: ", err)
+		respondWithError(w, 500, "error creating jwt")
+		return
+	}
+
 	respondWithJSON(w, 200, User{
 		ID: user.ID,
 		CreatedAt: user.CreatedAt,
 		UpdatedAt: user.UpdatedAt,
 		Email: user.Email,
+		Token: tokenString,
 	})
 }
 

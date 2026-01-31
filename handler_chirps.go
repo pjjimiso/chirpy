@@ -11,6 +11,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/pjjimiso/chirpy/internal/database"
+	"github.com/pjjimiso/chirpy/internal/auth"
 )
 
 type Chirp struct {
@@ -72,7 +73,28 @@ func (cfg *apiConfig) handlerChirpsGetAll(w http.ResponseWriter, r *http.Request
 func (cfg *apiConfig) handlerChirpsCreate(w http.ResponseWriter, r *http.Request) {
 	type parameters struct {
 		Body	string		`json:"body"`
-		UserID	uuid.UUID	`json:"user_id"`
+	}
+
+	token, err := auth.GetBearerToken(r.Header)
+	if err != nil { 
+		log.Printf("error retrieving token: %s", err)
+		respondWithError(w, 500, "couldn't get JWT")
+		return
+	}
+
+	/*
+	// Debug
+	fmt.Println("Authorization header:", r.Header.Get("Authorization"))
+	fmt.Printf("Authorization bytes: %v\n", []byte(r.Header.Get("Authorization")))
+	fmt.Println("Extracted token:", token)
+	fmt.Printf("Extracted token bytes: %v\n", []byte(token))
+	*/
+
+	userID, err := auth.ValidateJWT(token, cfg.jwtSecret)
+	if err != nil { 
+		log.Printf("error validating jwt: %s", err)
+		respondWithError(w, 401, "401 Unauthorized")
+		return
 	}
 
 	dat, err := io.ReadAll(r.Body)
@@ -88,8 +110,6 @@ func (cfg *apiConfig) handlerChirpsCreate(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-
-
 	origMsg := params.Body
 	if len(origMsg) > 140 { 
 		respondWithError(w, 400, "Chirp is too long")
@@ -100,7 +120,7 @@ func (cfg *apiConfig) handlerChirpsCreate(w http.ResponseWriter, r *http.Request
 	
 	chirp, err := cfg.db.CreateChirp(r.Context(), database.CreateChirpParams{
 		Body: cleanedMsg,
-		UserID: params.UserID,
+		UserID: userID,
 	})
 	if err != nil {
 		log.Printf("error creating chirp: %s", err)

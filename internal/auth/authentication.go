@@ -3,6 +3,8 @@ package auth
 import (
 	"fmt"
 	"time"
+	"net/http"
+	"regexp"
 
 	"github.com/google/uuid"
 	"github.com/alexedwards/argon2id"
@@ -60,3 +62,19 @@ func ValidateJWT(tokenString, tokenSecret string) (uuid.UUID, error) {
 	}
 	return userID, nil
 }
+
+func GetBearerToken(headers http.Header) (string, error) {
+	param := headers.Get("Authorization")
+	if param == "" {
+		return "", fmt.Errorf("authorization header missing")
+	}
+
+	re := regexp.MustCompile(`Bearer\s*`)
+	token := re.ReplaceAllString(param, "")
+	if token == "" {
+		return "", fmt.Errorf("token string is empty")
+	}
+
+	return token, nil
+}
+
