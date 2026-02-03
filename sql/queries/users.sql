@@ -21,3 +21,8 @@ TRUNCATE TABLE users CASCADE;
 -- name: GetUser :one
 SELECT * FROM users
 WHERE email = $1;
+
+-- name: UpdateUserCredentials :exec
+UPDATE users
+SET email = $1, hashed_passwords = $2
+WHERE id = $3;

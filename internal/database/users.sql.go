@@ -80,3 +80,20 @@ func (q *Queries) TruncateUsers(ctx context.Context) error {
 	_, err := q.db.ExecContext(ctx, truncateUsers)
 	return err
 }
+
+const updateUserCredentials = `-- name: UpdateUserCredentials :exec
+UPDATE users
+SET email = $1, hashed_passwords = $2
+WHERE id = $3
+`
+
+type UpdateUserCredentialsParams struct {
+	Email           string
+	HashedPasswords string
+	ID              uuid.UUID
+}
+
+func (q *Queries) UpdateUserCredentials(ctx context.Context, arg UpdateUserCredentialsParams) error {
+	_, err := q.db.ExecContext(ctx, updateUserCredentials, arg.Email, arg.HashedPasswords, arg.ID)
+	return err
+}
