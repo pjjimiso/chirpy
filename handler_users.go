@@ -31,7 +31,7 @@ func (cfg *apiConfig) handlerUsersLogin(w http.ResponseWriter, r *http.Request) 
 	dat, err := io.ReadAll(r.Body)
 	if err != nil {
 		log.Printf("failed to read request body: %s", err)
-		respondWithError(w, 500, "couldn't read request")
+		respondWithError(w, http.StatusInternalServerError, "couldn't read request")
 		return
 	}
 
@@ -39,7 +39,7 @@ func (cfg *apiConfig) handlerUsersLogin(w http.ResponseWriter, r *http.Request) 
 	err = json.Unmarshal(dat, &params)
 	if err != nil { 
 		log.Printf("json unmarshal failed: %s", err)
-		respondWithError(w, 500, "couldn't unmarshal parameters")
+		respondWithError(w, http.StatusInternalServerError, "couldn't unmarshal parameters")
 		return
 	}
 
@@ -55,7 +55,7 @@ func (cfg *apiConfig) handlerUsersLogin(w http.ResponseWriter, r *http.Request) 
 	user, err := cfg.db.GetUser(r.Context(), params.Email)
 	if err != nil {
 		log.Printf("error getting user: %s", err)
-		respondWithError(w, 500, "error getting user")
+		respondWithError(w, http.StatusInternalServerError, "error getting user")
 		return
 	}
 
@@ -70,14 +70,14 @@ func (cfg *apiConfig) handlerUsersLogin(w http.ResponseWriter, r *http.Request) 
 	accessToken, err := auth.MakeJWT(user.ID, cfg.jwtSecret, expiresIn)
 	if err != nil {
 		log.Printf("error creating access token: %s", err)
-		respondWithError(w, 500, "error creating access token")
+		respondWithError(w, http.StatusInternalServerError, "error creating access token")
 		return
 	}
 
 	refreshToken, err := auth.MakeRefreshToken()
 	if err != nil {
 		log.Printf("error creating refresh token: %s", err)
-		respondWithError(w, 500, "error creating refresh token")
+		respondWithError(w, http.StatusInternalServerError, "error creating refresh token")
 		return
 	}
 
@@ -93,7 +93,7 @@ func (cfg *apiConfig) handlerUsersLogin(w http.ResponseWriter, r *http.Request) 
 	_, err = cfg.db.CreateRefreshToken(r.Context(), createRefreshTokenParams)
 	if err != nil { 
 		log.Printf("error running CreateRefreshToken sql query: %s", err)
-		respondWithError(w, 500, "error creating refresh token")	
+		respondWithError(w, http.StatusInternalServerError, "error creating refresh token")	
 		return
 	}
 
@@ -115,26 +115,28 @@ func (cfg *apiConfig) handlerUsersCreate(w http.ResponseWriter, r *http.Request)
 
 	dat, err := io.ReadAll(r.Body)
 	if err != nil {
-		respondWithError(w, 500, "couldn't read request")
+		log.Printf("error reading request: %s", err)
+		respondWithError(w, http.StatusInternalServerError, "couldn't read request")
 		return
 	}
 
 	params := parameters{}
 	err = json.Unmarshal(dat, &params)
 	if err != nil { 
-		respondWithError(w, 500, "couldn't unmarshal parameters")
+		log.Printf("error unmarshaling parameters: %s", err)
+		respondWithError(w, http.StatusInternalServerError, "couldn't unmarshal parameters")
 		return
 	}
 	if params.Password == "" { 
 		log.Printf("password field in http request is empty")
-		respondWithError(w, 500, "password cannot be empty")
+		respondWithError(w, http.StatusInternalServerError, "password cannot be empty")
 		return
 	}
 
 	hash, err := auth.HashPassword(params.Password)
 	if err != nil { 
 		log.Printf("error hashing password: %s", err)
-		respondWithError(w, 500, "error hashing password")
+		respondWithError(w, http.StatusInternalServerError, "error hashing password")
 		return
 	}
 
@@ -144,7 +146,7 @@ func (cfg *apiConfig) handlerUsersCreate(w http.ResponseWriter, r *http.Request)
 	})
 	if err != nil {
 		log.Printf("user creation failed: %s", err)
-		respondWithError(w, 500, "user creation failed")
+		respondWithError(w, http.StatusInternalServerError, "user creation failed")
 		return
 
 	}
@@ -155,5 +157,62 @@ func (cfg *apiConfig) handlerUsersCreate(w http.ResponseWriter, r *http.Request)
 		UpdatedAt: user.UpdatedAt,
 		Email: user.Email,
 	})	
+}
+
+func (cfg *apiConfig) handlerUsersUpdateCredentials(w http.ResponseWriter, r *http.Request) { 
+	type parameters struct { 
+		Email		string	`json:"email"`
+		Password	string	`json:"password"`
+	}
+
+	dat, err := io.ReadAll(r.Body)
+	if err != nil {
+		log.Printf("error reading request: %s", err)
+		respondWithError(w, http.StatusInternalServerError, "couldn't read request")
+		return
+	}
+
+	params := parameters{}
+	err = json.Unmarshal(dat, &params)
+	if err != nil { 
+		log.Printf("error unmarshaling request parameters: %s", err)
+		respondWithError(w, http.StatusInternalServerError, "couldn't unmarshal request parameters")
+		return
+	}
+
+	tokenString, err := auth.GetBearerToken(r.Header)
+	if err != nil { 
+		log.Printf("error retrieving token: %s", err)
+		respondWithError(w, http.StatusUnauthorized, "401 Unauthorized")
+		return
+	}
+
+	userID, err := auth.ValidateJWT(tokenString, cfg.jwtSecret)
+	if err != nil { 
+		log.Printf("error validating jwt: %s", err)
+		respondWithError(w, http.StatusUnauthorized, "401 Unauthorized")
+		return
+	}
+
+	hash, err := auth.HashPassword(params.Password)
+	if err != nil { 
+		log.Printf("error hashing password: %s", err)
+		respondWithError(w, http.StatusInternalServerError, "error hashing password")
+		return
+	}
+
+	cfg.db.UpdateUserCredentials(r.Context(), database.UpdateUserCredentialsParams{
+		Email:			params.Email,
+		HashedPasswords:	hash,
+		ID:			userID,
+	})
+
+	response := struct {
+		Email string `json:"email"`
+	}{
+		Email: params.Email,
+	}
+
+	respondWithJSON(w, http.StatusOK, response)
 }
 
