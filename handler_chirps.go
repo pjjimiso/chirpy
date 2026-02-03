@@ -84,14 +84,6 @@ func (cfg *apiConfig) handlerChirpsCreate(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	/*
-	// Debug
-	fmt.Println("Authorization header:", r.Header.Get("Authorization"))
-	fmt.Printf("Authorization bytes: %v\n", []byte(r.Header.Get("Authorization")))
-	fmt.Println("Extracted token:", token)
-	fmt.Printf("Extracted token bytes: %v\n", []byte(token))
-	*/
-
 	userID, err := auth.ValidateJWT(token, cfg.jwtSecret)
 	if err != nil { 
 		log.Printf("error validating jwt: %s", err)
