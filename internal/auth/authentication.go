@@ -5,6 +5,8 @@ import (
 	"time"
 	"net/http"
 	"regexp"
+	"crypto/rand"
+	"encoding/hex"
 
 	"github.com/google/uuid"
 	"github.com/alexedwards/argon2id"
@@ -76,5 +78,12 @@ func GetBearerToken(headers http.Header) (string, error) {
 	}
 
 	return token, nil
+}
+
+func MakeRefreshToken() (string, error) {
+	key := make([]byte, 32)
+	rand.Read(key)
+	encodedKey := hex.EncodeToString(key)
+	return encodedKey, nil
 }
 

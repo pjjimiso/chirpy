@@ -6,7 +6,6 @@ import (
 	"io"
 	"time"
 	"log"
-	"fmt"
 
 	"github.com/google/uuid"
 	"github.com/pjjimiso/chirpy/internal/database"
@@ -19,6 +18,7 @@ type User struct {
 	UpdatedAt	time.Time	`json:"updated_at"`
 	Email		string		`json:"email"`
 	Token		string		`json:"token"`
+	RefreshToken	string		`json:"refresh_token"`
 }
 
 func (cfg *apiConfig) handlerUsersLogin(w http.ResponseWriter, r *http.Request) {
@@ -52,9 +52,6 @@ func (cfg *apiConfig) handlerUsersLogin(w http.ResponseWriter, r *http.Request) 
 		expiresIn = time.Duration(*params.ExpiresIn) * time.Second
 	}
 
-	fmt.Printf("\ntoken expiration: %v\n", expiresIn)
-
-
 	user, err := cfg.db.GetUser(r.Context(), params.Email)
 	if err != nil {
 		log.Printf("error getting user: %s", err)
@@ -64,25 +61,49 @@ func (cfg *apiConfig) handlerUsersLogin(w http.ResponseWriter, r *http.Request) 
 
 	match, err := auth.CheckPasswordHash(params.Password, user.HashedPasswords)
 	if !match || err != nil { 
-		log.Printf("error getting user", err)
+		log.Printf("error getting user %s", err)
 		respondWithError(w, 401, "401 Unauthorized")
 		return
 	}
 
 
-	tokenString, err := auth.MakeJWT(user.ID, cfg.jwtSecret, expiresIn)
+	accessToken, err := auth.MakeJWT(user.ID, cfg.jwtSecret, expiresIn)
 	if err != nil {
-		log.Printf("error creating jwt: ", err)
-		respondWithError(w, 500, "error creating jwt")
+		log.Printf("error creating access token: %s", err)
+		respondWithError(w, 500, "error creating access token")
+		return
+	}
+
+	refreshToken, err := auth.MakeRefreshToken()
+	if err != nil {
+		log.Printf("error creating refresh token: %s", err)
+		respondWithError(w, 500, "error creating refresh token")
+		return
+	}
+
+	// Expire in 60 days
+	refTokenExpiration := time.Now().AddDate(0, 0, 60)
+
+	createRefreshTokenParams := database.CreateRefreshTokenParams{
+		Token:		refreshToken,
+		UserID:		user.ID,
+		ExpiresAt:	refTokenExpiration,
+	}
+
+	_, err = cfg.db.CreateRefreshToken(r.Context(), createRefreshTokenParams)
+	if err != nil { 
+		log.Printf("error running CreateRefreshToken sql query: %s", err)
+		respondWithError(w, 500, "error creating refresh token")	
 		return
 	}
 
 	respondWithJSON(w, 200, User{
-		ID: user.ID,
-		CreatedAt: user.CreatedAt,
-		UpdatedAt: user.UpdatedAt,
-		Email: user.Email,
-		Token: tokenString,
+		ID:		user.ID,
+		CreatedAt:	user.CreatedAt,
+		UpdatedAt:	user.UpdatedAt,
+		Email:		user.Email,
+		Token:		accessToken,
+		RefreshToken:	refreshToken,
 	})
 }
 
@@ -102,6 +123,11 @@ func (cfg *apiConfig) handlerUsersCreate(w http.ResponseWriter, r *http.Request)
 	err = json.Unmarshal(dat, &params)
 	if err != nil { 
 		respondWithError(w, 500, "couldn't unmarshal parameters")
+		return
+	}
+	if params.Password == "" { 
+		log.Printf("password field in http request is empty")
+		respondWithError(w, 500, "password cannot be empty")
 		return
 	}
 
