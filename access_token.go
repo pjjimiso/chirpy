@@ -3,7 +3,6 @@ package main
 import (
 	"net/http"
 	"time"
-	"log"
 	
 	"github.com/pjjimiso/chirpy/internal/auth"
 )
@@ -16,30 +15,26 @@ func (cfg *apiConfig) handlerRefreshAccessToken(w http.ResponseWriter, r *http.R
 
 	tokenString, err := auth.GetBearerToken(r.Header)
 	if err != nil { 
-		log.Printf("error retrieving token: %s", err)
-		respondWithError(w, http.StatusInternalServerError, "error retrieving refresh token")
+		respondWithError(w, http.StatusInternalServerError, "Couldn't find token", err)
 		return
 	}
 
 	token, err := cfg.db.GetUserFromRefreshToken(r.Context(), tokenString)
 	if err != nil { 
-		log.Printf("error querying refresh token: %s", err)
-		respondWithError(w, http.StatusUnauthorized, "http.StatusUnauthorized Unauthorized")
+		respondWithError(w, http.StatusUnauthorized, "Couldn't get user refresh token", err)
 		return
 	}
 
 	// Check if token has expired
 	if time.Now().After(token.ExpiresAt) {
-		log.Printf("refresh token has expired")
-		respondWithError(w, http.StatusUnauthorized, "http.StatusUnauthorized Unauthorized")
+		respondWithError(w, http.StatusUnauthorized, "Refresh token expired", err)
 		return
 	}
 
 	// create a new JWT
 	jwt, err := auth.MakeJWT(token.UserID, cfg.jwtSecret, time.Hour)
 	if err != nil {
-		log.Printf("error creating access token: %s", err)
-		respondWithError(w, http.StatusInternalServerError, "error creating access token")
+		respondWithError(w, http.StatusInternalServerError, "Couldn't create access token", err)
 		return
 	}
 
@@ -51,11 +46,14 @@ func (cfg *apiConfig) handlerRefreshAccessToken(w http.ResponseWriter, r *http.R
 func (cfg *apiConfig) handlerRevokeAccessToken(w http.ResponseWriter, r *http.Request) {
 	token, err := auth.GetBearerToken(r.Header) 
 	if err != nil { 
-		log.Printf("error retrieving token: %s", err)
-		respondWithError(w, http.StatusInternalServerError, "error retrieving refresh token")
+		respondWithError(w, http.StatusInternalServerError, "Couldn't find token", err)
 		return
 	}
 
-	cfg.db.UpdateTokenRevokedAt(r.Context(), token)
+	err = cfg.db.UpdateTokenRevokedAt(r.Context(), token)
+	if err != nil { 
+		respondWithError(w, http.StatusInternalServerError, "Couldn't revoke session", err)
+		return
+	}
 	w.WriteHeader(http.StatusNoContent)
 }

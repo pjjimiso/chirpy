@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"io"
 	"time"
-	"log"
 
 	"github.com/google/uuid"
 	"github.com/pjjimiso/chirpy/internal/database"
@@ -30,16 +29,14 @@ func (cfg *apiConfig) handlerUsersLogin(w http.ResponseWriter, r *http.Request) 
 
 	dat, err := io.ReadAll(r.Body)
 	if err != nil {
-		log.Printf("failed to read request body: %s", err)
-		respondWithError(w, http.StatusInternalServerError, "couldn't read request")
+		respondWithError(w, http.StatusInternalServerError, "Couldn't read request parameters", err)
 		return
 	}
 
 	params := parameters{}
 	err = json.Unmarshal(dat, &params)
 	if err != nil { 
-		log.Printf("json unmarshal failed: %s", err)
-		respondWithError(w, http.StatusInternalServerError, "couldn't unmarshal parameters")
+		respondWithError(w, http.StatusInternalServerError, "Couldn't unmarshal json parameters", err)
 		return
 	}
 
@@ -54,30 +51,26 @@ func (cfg *apiConfig) handlerUsersLogin(w http.ResponseWriter, r *http.Request) 
 
 	user, err := cfg.db.GetUser(r.Context(), params.Email)
 	if err != nil {
-		log.Printf("error getting user: %s", err)
-		respondWithError(w, http.StatusInternalServerError, "error getting user")
+		respondWithError(w, http.StatusInternalServerError, "Couldn't get user", err)
 		return
 	}
 
 	match, err := auth.CheckPasswordHash(params.Password, user.HashedPasswords)
 	if !match || err != nil { 
-		log.Printf("error getting user %s", err)
-		respondWithError(w, 401, "401 Unauthorized")
+		respondWithError(w, http.StatusUnauthorized, "Invalid password", err)
 		return
 	}
 
 
 	accessToken, err := auth.MakeJWT(user.ID, cfg.jwtSecret, expiresIn)
 	if err != nil {
-		log.Printf("error creating access token: %s", err)
-		respondWithError(w, http.StatusInternalServerError, "error creating access token")
+		respondWithError(w, http.StatusInternalServerError, "Couldn't create access token", err)
 		return
 	}
 
 	refreshToken, err := auth.MakeRefreshToken()
 	if err != nil {
-		log.Printf("error creating refresh token: %s", err)
-		respondWithError(w, http.StatusInternalServerError, "error creating refresh token")
+		respondWithError(w, http.StatusInternalServerError, "Couldn't create session token", err)
 		return
 	}
 
@@ -92,8 +85,7 @@ func (cfg *apiConfig) handlerUsersLogin(w http.ResponseWriter, r *http.Request) 
 
 	_, err = cfg.db.CreateRefreshToken(r.Context(), createRefreshTokenParams)
 	if err != nil { 
-		log.Printf("error running CreateRefreshToken sql query: %s", err)
-		respondWithError(w, http.StatusInternalServerError, "error creating refresh token")	
+		respondWithError(w, http.StatusInternalServerError, "Couldn't create session", err)	
 		return
 	}
 
@@ -115,28 +107,24 @@ func (cfg *apiConfig) handlerUsersCreate(w http.ResponseWriter, r *http.Request)
 
 	dat, err := io.ReadAll(r.Body)
 	if err != nil {
-		log.Printf("error reading request: %s", err)
-		respondWithError(w, http.StatusInternalServerError, "couldn't read request")
+		respondWithError(w, http.StatusInternalServerError, "Couldn't read request parameters", err)
 		return
 	}
 
 	params := parameters{}
 	err = json.Unmarshal(dat, &params)
 	if err != nil { 
-		log.Printf("error unmarshaling parameters: %s", err)
-		respondWithError(w, http.StatusInternalServerError, "couldn't unmarshal parameters")
+		respondWithError(w, http.StatusInternalServerError, "Couldn't unmarshal json parameters", err)
 		return
 	}
 	if params.Password == "" { 
-		log.Printf("password field in http request is empty")
-		respondWithError(w, http.StatusInternalServerError, "password cannot be empty")
+		respondWithError(w, http.StatusInternalServerError, "Password field can't be empty", nil)
 		return
 	}
 
 	hash, err := auth.HashPassword(params.Password)
 	if err != nil { 
-		log.Printf("error hashing password: %s", err)
-		respondWithError(w, http.StatusInternalServerError, "error hashing password")
+		respondWithError(w, http.StatusInternalServerError, "Couldn't hash password", err)
 		return
 	}
 
@@ -145,8 +133,7 @@ func (cfg *apiConfig) handlerUsersCreate(w http.ResponseWriter, r *http.Request)
 		HashedPasswords: hash,
 	})
 	if err != nil {
-		log.Printf("user creation failed: %s", err)
-		respondWithError(w, http.StatusInternalServerError, "user creation failed")
+		respondWithError(w, http.StatusInternalServerError, "Couldn't create user", err)
 		return
 
 	}
@@ -167,39 +154,36 @@ func (cfg *apiConfig) handlerUsersUpdateCredentials(w http.ResponseWriter, r *ht
 
 	dat, err := io.ReadAll(r.Body)
 	if err != nil {
-		log.Printf("error reading request: %s", err)
-		respondWithError(w, http.StatusInternalServerError, "couldn't read request")
+		respondWithError(w, http.StatusInternalServerError, "Couldn't read request parameters", err)
 		return
 	}
 
 	params := parameters{}
 	err = json.Unmarshal(dat, &params)
 	if err != nil { 
-		log.Printf("error unmarshaling request parameters: %s", err)
-		respondWithError(w, http.StatusInternalServerError, "couldn't unmarshal request parameters")
+		respondWithError(w, http.StatusInternalServerError, "Couldn't unmarshal json parameters", err)
 		return
 	}
 
 	tokenString, err := auth.GetBearerToken(r.Header)
 	if err != nil { 
-		log.Printf("error retrieving token: %s", err)
-		respondWithError(w, http.StatusUnauthorized, "401 Unauthorized")
+		respondWithError(w, http.StatusUnauthorized, "Couldn't get token", err)
 		return
 	}
 
 	userID, err := auth.ValidateJWT(tokenString, cfg.jwtSecret)
 	if err != nil { 
-		log.Printf("error validating jwt: %s", err)
-		respondWithError(w, http.StatusUnauthorized, "401 Unauthorized")
+		respondWithError(w, http.StatusUnauthorized, "Couldn't validate token", err)
 		return
 	}
 
 	hash, err := auth.HashPassword(params.Password)
 	if err != nil { 
-		log.Printf("error hashing password: %s", err)
-		respondWithError(w, http.StatusInternalServerError, "error hashing password")
+		respondWithError(w, http.StatusInternalServerError, "Couldn't hash password", err)
 		return
 	}
+
+	// TODO modify DB query to update the updated_at field
 
 	cfg.db.UpdateUserCredentials(r.Context(), database.UpdateUserCredentialsParams{
 		Email:			params.Email,
