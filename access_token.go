@@ -17,21 +17,21 @@ func (cfg *apiConfig) handlerRefreshAccessToken(w http.ResponseWriter, r *http.R
 	tokenString, err := auth.GetBearerToken(r.Header)
 	if err != nil { 
 		log.Printf("error retrieving token: %s", err)
-		respondWithError(w, 500, "error retrieving refresh token")
+		respondWithError(w, http.StatusInternalServerError, "error retrieving refresh token")
 		return
 	}
 
 	token, err := cfg.db.GetUserFromRefreshToken(r.Context(), tokenString)
 	if err != nil { 
 		log.Printf("error querying refresh token: %s", err)
-		respondWithError(w, 401, "401 Unauthorized")
+		respondWithError(w, http.StatusUnauthorized, "http.StatusUnauthorized Unauthorized")
 		return
 	}
 
 	// Check if token has expired
 	if time.Now().After(token.ExpiresAt) {
 		log.Printf("refresh token has expired")
-		respondWithError(w, 401, "401 Unauthorized")
+		respondWithError(w, http.StatusUnauthorized, "http.StatusUnauthorized Unauthorized")
 		return
 	}
 
@@ -39,11 +39,11 @@ func (cfg *apiConfig) handlerRefreshAccessToken(w http.ResponseWriter, r *http.R
 	jwt, err := auth.MakeJWT(token.UserID, cfg.jwtSecret, time.Hour)
 	if err != nil {
 		log.Printf("error creating access token: %s", err)
-		respondWithError(w, 500, "error creating access token")
+		respondWithError(w, http.StatusInternalServerError, "error creating access token")
 		return
 	}
 
-	respondWithJSON(w, 200, AccessToken{
+	respondWithJSON(w, http.StatusOK, AccessToken{
 		TokenString:	jwt,
 	})
 }
@@ -52,10 +52,10 @@ func (cfg *apiConfig) handlerRevokeAccessToken(w http.ResponseWriter, r *http.Re
 	token, err := auth.GetBearerToken(r.Header) 
 	if err != nil { 
 		log.Printf("error retrieving token: %s", err)
-		respondWithError(w, 500, "error retrieving refresh token")
+		respondWithError(w, http.StatusInternalServerError, "error retrieving refresh token")
 		return
 	}
 
 	cfg.db.UpdateTokenRevokedAt(r.Context(), token)
-	w.WriteHeader(204)
+	w.WriteHeader(http.StatusNoContent)
 }
