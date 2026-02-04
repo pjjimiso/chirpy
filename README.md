@@ -11,7 +11,7 @@ curl -X POST http://localhost:8080/api/login -H "Content-Type: application/json"
 curl -X POST http://localhost:8080/api/refresh -H "Authorization: Bearer <refresh_token>"
 
 #### Create Chirp using JWT
-curl -X POST http://localhost:8080/api/chirps -H "Content-Type: application/json" -H "Authorization: Bearer <access_token>" -d '{"body": "Hello, world!", "user_id": "e00b789e-67ac-4533-a98d-658aa583238f"}'
+curl -X POST http://localhost:8080/api/chirps -H "Content-Type: application/json" -H "Authorization: Bearer <access_token>" -d '{"body": "Hello, world!"}'
 
 #### Delete Chirp
 curl -X DELETE http://localhost:8080/api/chirps/<chirp_id> -H "Authorization: Bearer <access_token>"
@@ -21,3 +21,12 @@ curl -X POST http://localhost:8080/admin/reset
 
 #### Update user credentials using access token
 curl -X PUT http://localhost:8080/api/users -H "Content-Type: application/json" -H "Authorization: Bearer <access_token>"  -d '{"password": "123password", "email": "pjjimiso@gmail.com"}'
+
+#### Get All Chirps
+curl -X GET https://localhost:8080/api/chirps
+
+#### Get Chirps by Author
+curl -X GET http://localhost:8080/api/chirps?author_id=<user_id>
+
+#### Get Chirp by id
+curl -X GET http://localhost:8080/api/chirp/<chirp_id>

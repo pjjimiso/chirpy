@@ -22,14 +22,32 @@ type Chirp struct {
 }
 
 func (cfg *apiConfig) handlerChirpsGetAll(w http.ResponseWriter, r *http.Request) {
-	chirps := []Chirp{}
-	chirpsJSON, err := cfg.db.GetChirps(r.Context())
+	var chirpsJSON []database.Chirp
+	var err error
 
-	if err != nil {
-		respondWithError(w, http.StatusNotFound, "Couldn't find any chirps", err)
-		return
+	author := r.URL.Query().Get("author_id")
+
+	if author != "" { 
+		userID, err := uuid.Parse(author)
+		if err != nil { 
+			respondWithError(w, http.StatusNotFound, "User not found", err)
+			return
+		}
+
+		chirpsJSON, err = cfg.db.GetChirpsByAuthor(r.Context(), userID)
+		if err != nil {
+			respondWithError(w, http.StatusNotFound, "No chirps by that author were found", err)
+			return
+		}
+	} else {
+		chirpsJSON, err = cfg.db.GetChirps(r.Context())
+		if err != nil {
+			respondWithError(w, http.StatusNotFound, "No chirps were found", err)
+			return
+		}
 	}
 
+	chirps := []Chirp{}
 	for _, chirp := range chirpsJSON {
 		chirps = append(chirps, Chirp{
 			ID: chirp.ID,
