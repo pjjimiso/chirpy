@@ -18,6 +18,7 @@ type apiConfig struct {
 	db		*database.Queries
 	platform	string
 	jwtSecret	string
+	polkaApiKey	string
 }
 
 func main() {
@@ -26,9 +27,10 @@ func main() {
 
 
 	godotenv.Load()
-	plat := os.Getenv("PLATFORM")
-	dbURL := os.Getenv("DB_URL")
-	secret := os.Getenv("JWT_SECRET")
+	plat :=		os.Getenv("PLATFORM")
+	secret :=	os.Getenv("JWT_SECRET")
+	polkaApiKey :=	os.Getenv("POLKA_KEY")
+	dbURL :=	os.Getenv("DB_URL")
 	if dbURL == "" {
 		log.Fatal("DB_URL must be set")
 	}
@@ -37,6 +39,7 @@ func main() {
 	if err != nil {
 		log.Fatal("Error opening database: %s", err)
 	}
+
 	dbQueries := database.New(db)
 
 	apiCfg := apiConfig{
@@ -44,6 +47,7 @@ func main() {
 		db:		dbQueries,
 		platform:	plat,
 		jwtSecret:	secret,
+		polkaApiKey:	polkaApiKey,
 	}
 
 	mux := http.NewServeMux()
@@ -51,18 +55,24 @@ func main() {
 	mux.Handle("/app/", apiCfg.middlewareMetricsInc(fsHandler))
 
 	mux.HandleFunc("GET /api/healthz", handlerReadyCheck)
+
 	mux.HandleFunc("POST /api/users", apiCfg.handlerUsersCreate)
 	mux.HandleFunc("PUT /api/users", apiCfg.handlerUsersUpdateCredentials)
+
 	mux.HandleFunc("POST /api/chirps", apiCfg.handlerChirpsCreate)
 	mux.HandleFunc("GET /api/chirps", apiCfg.handlerChirpsGetAll)
 	mux.HandleFunc("GET /api/chirps/{chirpID}", apiCfg.handlerChirpsGet)
 	mux.HandleFunc("DELETE /api/chirps/{chirpID}", apiCfg.handlerChirpsDelete)
+
 	mux.HandleFunc("POST /api/login", apiCfg.handlerUsersLogin)
 	mux.HandleFunc("POST /api/refresh", apiCfg.handlerRefreshAccessToken)
 	mux.HandleFunc("POST /api/revoke", apiCfg.handlerRevokeAccessToken)
 
+	mux.HandleFunc("POST /api/polka/webhooks", apiCfg.handlerPolkaWebhooks)
+
 	mux.HandleFunc("GET /admin/metrics", apiCfg.handlerMetrics)
 	mux.HandleFunc("POST /admin/reset", apiCfg.handlerAdminReset)
+
 
 
 	srv := http.Server {
