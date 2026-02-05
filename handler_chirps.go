@@ -7,6 +7,7 @@ import (
 	"io"
 	"regexp"
 	"time"
+	"slices"
 
 	"github.com/google/uuid"
 	"github.com/pjjimiso/chirpy/internal/database"
@@ -25,8 +26,8 @@ func (cfg *apiConfig) handlerChirpsGetAll(w http.ResponseWriter, r *http.Request
 	var chirpsJSON []database.Chirp
 	var err error
 
-	author := r.URL.Query().Get("author_id")
 
+	author := r.URL.Query().Get("author_id")
 	if author != "" { 
 		userID, err := uuid.Parse(author)
 		if err != nil { 
@@ -58,7 +59,21 @@ func (cfg *apiConfig) handlerChirpsGetAll(w http.ResponseWriter, r *http.Request
 		})
 	}
 
+	sortOrder := r.URL.Query().Get("sort")
+	if sortOrder != "" {
+		sortByCreatedAt(chirps, sortOrder)
+	}
+
 	respondWithJSON(w, http.StatusOK, chirps)
+}
+
+func sortByCreatedAt(items []Chirp, sortOrder string) {
+	slices.SortFunc(items, func(a, b Chirp) int {
+		if sortOrder == "desc" {
+			return b.CreatedAt.Compare(a.CreatedAt)
+		}
+		return a.CreatedAt.Compare(b.CreatedAt)
+	})
 }
 
 func (cfg *apiConfig) handlerChirpsGet(w http.ResponseWriter, r *http.Request) {
